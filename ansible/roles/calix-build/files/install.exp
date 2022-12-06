@@ -1,0 +1,18 @@
+#!/bin/expect 
+
+set timeout 120
+
+spawn ./$env(inst) -n -b $env(fixedDevice) -i $env(calixip)
+
+expect "Make configuration changes? (Y or N) :" {send N\r}
+        
+expect "Please input:" {send N\r}
+     
+expect "Please input your company name" {send Litfibre\r}
+
+expect "((Attempt : 1 of 3):*"  
+send -- "$env(atoken)\r"
+send -- "\r"
+
+# done
+expect eof

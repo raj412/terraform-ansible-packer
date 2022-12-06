@@ -1,0 +1,18 @@
+#
+# calix-build.yml
+# 
+
+# Build calix node
+- name: Calix base build
+  hosts: ['linux']
+  connection: local
+  vars:
+    yum_status: null        
+  become: true
+  remote_user: centos
+  become_user: root  
+  roles:
+    - python-build
+    - calix-build
+    - alertpoller-build
+  strategy: free

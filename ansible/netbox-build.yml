@@ -1,0 +1,18 @@
+#
+# netbox-build.yml
+#
+
+# Install Netbox
+- name: netbox Build
+  hosts: ['linux']
+  connection: local
+  become: true
+  remote_user: ubuntu
+  become_user: root
+  roles:
+     - python-build
+     - netbox-build
+     - alertpoller-build
+  strategy: free
+
+

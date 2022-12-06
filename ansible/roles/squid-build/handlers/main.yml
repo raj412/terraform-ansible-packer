@@ -1,0 +1,8 @@
+#
+# role squid-build
+# handlers file
+#
+- name: restart squid
+  service:
+    name: squid
+    state: restarted

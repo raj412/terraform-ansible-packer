@@ -1,0 +1,1 @@
+from .lsecrets import get_secret, get_region

@@ -1,0 +1,324 @@
+#
+# tasks file
+#
+
+- name: Copy in the network setup script
+  copy:
+    src: configure-fixed-ip.sh
+    dest: /root/configure-fixed-ip.sh
+    owner: root
+    group: root
+    mode: 0700
+
+# Setup the fixed IP files
+- name: Run Network Setup script 
+  script: /root/configure-fixed-ip.sh
+
+# Create the calix user
+- name: Create the calix user
+  user:
+    name: calix
+
+# Create the opt mount point
+- name: Create calix mount point
+  file:
+    path: /opt/PMAPMAA
+    state: directory
+    mode: 0755
+    group: calix
+    owner: calix
+
+# create the opt volume
+- name: Create the calix lv
+  lvol:
+    vg: vg_data
+    lv: lv_opt_calix
+    size: 199G
+
+- name: format lv_opt_calix as XFS
+  filesystem:
+    fstype: xfs
+    dev: /dev/vg_data/lv_opt_calix
+
+
+- name: Update fstab with the new mount point
+  lineinfile:
+    path: /etc/fstab
+    regexp: '^/dev/vg_data/lv_opt_calix  /opt/PMAPMAA'
+    line: '/dev/vg_data/lv_opt_calix /opt/PMAPMAA xfs defaults 0 0'
+
+- name: Mount the new LV
+  mount:
+    path: /opt/PMAPMAA
+    src: /dev/vg_data/lv_opt_calix
+    fstype: xfs
+    state: mounted
+
+- name: Set all calix ulimit values
+  pam_limits:
+    domain: calix
+    limit_type: "{{item.limit_type}}"
+    limit_item: "{{item.limit_item}}"
+    value: "{{item.value}}"
+  loop:
+    - { limit_type: 'hard', limit_item: 'nproc', value: 64000 }
+    - { limit_type: 'soft', limit_item: 'nproc', value: 64000 }
+    - { limit_type: 'hard', limit_item: 'fsize', value: unlimited }
+    - { limit_type: 'soft', limit_item: 'fsize', value: unlimited }
+    - { limit_type: 'hard', limit_item: 'cpu', value: unlimited }
+    - { limit_type: 'soft', limit_item: 'cpu', value: unlimited }
+    - { limit_type: 'hard', limit_item: 'as', value: unlimited }
+    - { limit_type: 'soft', limit_item: 'as', value: unlimited }
+    - { limit_type: 'hard', limit_item: 'memlock', value: unlimited }
+    - { limit_type: 'soft', limit_item: 'memlock', value: unlimited }
+    - { limit_type: 'hard', limit_item: 'nofile', value: 64000 }
+    - { limit_type: 'soft', limit_item: 'nofile', value: 64000 }
+
+- name: Ensure all Calix pre-requiste packages are installed
+  yum:
+    name: "{{ packages }}"
+  vars:
+    packages:
+      - NetworkManager-config-routing-rules
+      - net-tools
+      - curl
+      - openssh-clients
+      - tcpdump
+      - nano
+      - expect
+      - wget
+      - python3 
+
+- name: reload settings from all system configuration files
+  shell: sysctl --system
+
+- name: Create 16GB swap file
+  command: dd if=/dev/zero of=/swapfile bs=512 count=32768000 creates=/swapfile
+  tags:
+    - swap.file.create
+
+- name: Change swap file permissions
+  file: path=/swapfile
+        owner=root
+        group=root
+        mode=0600
+  tags:
+    - swap.file.permissions
+
+- name: Check swap file type
+  command: file /swapfile
+  register: swapfile
+  tags:
+    - swap.file.mkswap
+
+
+- name: Make swap file
+  command: "mkswap /swapfile"
+  when: swapfile.stdout.find('swap file') == -1
+  tags:
+    - swap.file.mkswap
+
+
+- name: Write swap entry in fstab
+  mount: name=none
+         src=/swapfile
+         fstype=swap
+         opts=sw
+         passno=0
+         dump=0
+         state=present
+  tags:
+    - swap.fstab
+
+- name: Mount swap
+  command: "swapon -a  "
+  when: ansible_swaptotal_mb < 1
+  tags:
+    - swap.file.swapon
+
+- name: Set system kernel settings
+  sysctl:
+    name:  "{{item.name}}"
+    value: "{{item.value}}"
+    sysctl_set: yes
+    state: present
+    reload: yes
+  loop:
+    - { name: 'vm.swappiness' , value: 10 }
+    - { name: 'vm.max_map_count', value: 262144 }
+    - { name: 'vm.dirty_ratio', value: 15 }
+    - { name: 'vm.dirty_background_ratio', value: 5 }
+    - { name: 'net.core.somaxconn', value: 4096 }
+    - { name: 'net.ipv4.tcp_fin_timeout', value: 30 }
+    - { name: 'net.ipv4.tcp_keepalive_intvl', value: 30 }
+    - { name: 'net.ipv4.tcp_keepalive_time', value: 120 }
+    - { name: 'net.ipv4.tcp_max_syn_backlog', value: 4096 }
+    - { name: 'net.ipv4.conf.eth0.rp_filter', value: 2 }
+    - { name: 'net.ipv4.conf.eth1.rp_filter', value: 2 }
+
+- name: Copy in transparent huge page disable service
+  copy:
+    src: thp-off.service
+    dest: /usr/lib/systemd/system/thp-off.service
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Enable hugepage off serivce
+  service:
+    name: thp-off.service
+    enabled: yes
+    state: started
+    
+- name: Create deploy directory
+  file:
+    path: /opt/calix/deploy
+    state: directory
+    mode: '0755'
+    recurse: true
+
+- name: Get the calix install file
+  aws_s3:
+    bucket: litfibre-infra
+    object: /calix/install.bin
+    dest: /opt/calix/deploy/install.bin
+    mode: get
+
+- name: Set perms on calix bin
+  file:
+   path: /opt/calix/deploy/install.bin
+   owner: root
+   group: root
+   mode: 0700
+
+- name: Get the calix account key
+  aws_s3:
+    bucket: litfibre-infra
+    object: /calix/calix-account-key.txt
+    dest: /opt/calix/deploy/calix-account-key.txt
+    mode: get
+
+# - name: Unzip the calix install
+#   unarchive:
+#     src: /opt/PMAPMAA/deploy/calix.zip
+#     dest: /opt/PMAPMAA/deploy
+#     remote_src: yes
+
+- name: Copy in the calix install.sh
+  copy:
+    src: install.sh
+    dest: /opt/calix/deploy/install.sh
+    owner: root
+    group: root
+    mode: 0700
+
+# - name: Copy in the calix expect install script
+#   copy:
+#     src: install.exp
+#     dest: /opt/calix/deploy/install.exp
+#     owner: root
+#     group: root
+#     mode: 0700
+
+- name: Run the calix install
+  shell: ./install.sh
+  args:
+    chdir: /opt/calix/deploy/
+
+- name: Create management directory
+  file:
+    path: /opt/management/bin
+    state: directory
+    mode: '0750'
+    recurse: yes
+
+- name: Create the backup directory
+  file:
+    path: /opt/PMAPMAA/backup
+    state: directory
+    mode: '0750'
+
+- name: Copy in the management scripts
+  copy:
+    src: "{{item.src}}"
+    dest: "{{item.dest}}{{item.src}}"
+    owner: root
+    group: root
+    mode: 0700
+  loop:
+    - {src: "calix-backup.py",  dest: "/opt/management/bin/"}
+    - {src: "calix-restore.py", dest: "/opt/management/bin/"}
+    - {src: "calix-check.py", dest: "/opt/management/bin/"}
+
+
+# Telegraf changes
+# /etc/systemd/system/telegraf.service.d/override.conf
+
+- name: Copy in calix telegraf
+  copy:
+    src: calix-telegraf.conf
+    dest: /etc/telegraf/telegraf.d/calix-telegraf.conf
+    owner: root
+    group: root
+    mode: 0640
+
+- name: Create the telegraf service override directory
+  file:
+    path: /etc/systemd/system/telegraf.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: 755
+
+- name: Copy in telegraf service override
+  copy:
+    src: telegraf.service.override.conf
+    dest: /etc/systemd/system/telegraf.service.d/override.conf
+    owner: root
+    group: root
+    mode: 0640
+
+- name: Run check calix to configure passwords
+  script: /opt/management/bin/calix-check.py
+
+# - name: Reload systemctl daemon
+#   script: systemctl daemon-reload
+
+- name: copy update calix "environment_type" env script
+  copy:
+    src: calix_env.sh
+    dest: /root/calix_env.sh
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Run to update calix "environment_type" env script 
+  script: /root/calix_env.sh
+
+- name: Restart telegraf
+  service:
+    name: telegraf.service
+    enabled: yes
+    daemon_reload: yes
+    state: restarted
+    
+- name: Start Calix
+  service:
+    name: pmapmaad.service
+    enabled: yes
+    state: started
+
+- name: Fix pmapmaad.service permissions
+  file:
+    path: /usr/lib/systemd/system/pmapmaad.service
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Create a symbolic link for calix service
+  file:
+    src: /usr/lib/systemd/system/pmapmaad.service
+    dest: /usr/lib/systemd/system/calix.service
+    owner: root
+    group: root
+    state: link

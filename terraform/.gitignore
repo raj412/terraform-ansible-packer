@@ -1,0 +1,8 @@
+provider.tf
+id_rsa
+id_rsa.pub
+set-env.sh
+.terraform
+look*
+plan-apply*
+*.pem

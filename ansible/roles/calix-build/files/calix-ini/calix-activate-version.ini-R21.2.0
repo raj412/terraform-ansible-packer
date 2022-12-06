@@ -1,0 +1,21 @@
+#activate system base version
+baseline=MBSMX212-CI-77
+release_version=SMX_R21.2.0
+release_buildnumber=77
+
+#sub-system version
+odl=0.3.3-Lithium-SR3
+dpu=AXOS-R4.0.5-LCI,AXOS-R4.0.4-LCI
+mongo=3.4.7
+plugin=${plugin}
+pmaa=${pmaa}
+apidoc=${apidoc}
+gui=${gui}
+E9=AXOS-R20.2.0,AXOS-R20.3.0,AXOS-R20.4.0,AXOS-R21.1.0,AXOS-R21.2.0
+E7=AXOS-R20.2.0,AXOS-R20.3.0,AXOS-R20.4.0,AXOS-R21.1.0,AXOS-R21.2.0
+E32=AXOS-R20.2.0,AXOS-R20.3.0,AXOS-R20.4.0,AXOS-R21.1.0,AXOS-R21.2.0
+ONT=
+GFAST=AXOS-R3.1.4.1
+GPR3000X=EXOS-R20.2.0,EXOS-R20.3.0,EXOS-R20.4.0,EXOS-R21.1.0,EXOS-R21.2.0
+882NG=EXOS-R19.4.0
+data_upgrade_last_sequence=#MB-SMX-212-1

@@ -1,0 +1,14 @@
+#
+# python-build.yml
+#
+
+# Set machine up for development
+- name: python Build
+  hosts: ['linux']
+  connection: local
+  become: true
+  remote_user: ubuntu
+  become_user: root
+  roles:
+     - python-build
+  strategy: free

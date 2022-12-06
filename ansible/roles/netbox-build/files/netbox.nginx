@@ -1,0 +1,43 @@
+#########################
+# Controlled by ansible #
+# netbox role           #
+#########################
+
+server {
+    listen 443 ssl;
+
+    server_name netbox.example.com;
+
+    ssl_certificate /etc/ssl/certs/netbox.crt;
+    ssl_certificate_key /etc/ssl/private/netbox.key;
+
+    client_max_body_size 25m;
+
+    location /static/ {
+        alias /opt/netbox/deploy/current/netbox/static/;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8001;
+        proxy_set_header X-Forwarded-Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        #add_header P3P 'CP="ALL DSP COR PSAa PSDa OUR NOR ONL UNI COM NAV"';
+    }
+
+#SSO disabled, Now using LDAP
+#    location /login/ {
+#        proxy_pass http://127.0.0.1:8001/api/plugins/sso/login/;
+#    }
+
+#    location /sso/ {
+#        proxy_pass http://127.0.0.1:8001/api/plugins/sso/;  # Must have a trailing slash to strip the original path
+#    }
+}
+
+server {
+    # Redirect HTTP traffic to HTTPS
+    listen 80;
+    server_name _;
+    return 301 https://$host$request_uri;
+}

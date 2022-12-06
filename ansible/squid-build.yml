@@ -1,0 +1,14 @@
+#
+# squid-build.yml
+#
+
+# Set machine up for development
+- name: squid Build
+  hosts: ['linux']
+  connection: local
+  become: true
+  remote_user: ubuntu
+  become_user: root
+  roles:
+     - squid-build
+  strategy: free

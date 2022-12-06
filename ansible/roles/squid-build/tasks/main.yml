@@ -1,0 +1,62 @@
+#
+# role squid-build
+# tasks file
+#
+- name: Install SQUID proxy
+  apt:
+    name: squid
+    update_cache: true
+    state: latest
+
+- name: Start & Enables SQUID Service
+  service:
+    name: squid
+    state: started
+    enabled: yes
+
+- name: Install NFS utils
+  apt:
+    name: nfs-common
+    state: present
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Copy in script for Create a SSL certificate for the SslBump Squid module
+  copy:
+    dest: /root/efs-mount.sh
+    src: efs-mount.sh
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Run Create a SSL certificate for the SslBump Squid module script
+  script: /root/efs-mount.sh
+
+- name: Copy in script for Create a SSL certificate for the SslBump Squid module
+  copy:
+    dest: /root/sslbump-squid.sh
+    src: sslbump-squid.sh
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Run Create a SSL certificate for the SslBump Squid module script
+  script: /root/sslbump-squid.sh
+
+- name: Copy SQUID configuration file
+  template:
+    src: squid.conf.j2
+    dest: /etc/squid/squid.conf
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Copy whitelist.txt (List of whitelisted domains separated by a comma)
+  template:
+    src: whitelist.txt
+    dest: /etc/squid/whitelist.txt
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - restart squid

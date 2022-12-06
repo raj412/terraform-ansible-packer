@@ -1,0 +1,8 @@
+#!/bin/bash
+
+export AWS_ACCESS_KEY_ID=""
+export AWS_SECRET_ACCESS_KEY=""
+export AWS_DEFAULT_REGION="eu-west-2"
+if [ -f /lf/id_rsa.pub ];then
+  export TF_VAR_lf_pub_key=`cat /id_rsa.pub`
+fi

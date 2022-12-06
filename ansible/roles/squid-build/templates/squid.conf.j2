@@ -1,0 +1,47 @@
+visible_hostname squid
+cache deny all
+
+# Log format and rotation
+logformat squid %ts.%03tu %6tr %>a %Ss/%03>Hs %<st %rm %ru %ssl::>sni %Sh/%<a %mt
+logfile_rotate 10
+debug_options rotate=10
+
+# Handle HTTP requests
+http_port 3128
+
+# Example rule allowing access from your local networks.
+# Adapt to list your (internal) IP networks from where browsing
+# should be allowed
+acl localnet src 172.18.8.0/21
+
+acl CONNECT method CONNECT
+acl SSL_ports port 443
+acl Safe_ports port 80		# http
+
+# Deny requests to proxy instance metadata
+acl instance_metadata dst 169.254.169.254
+http_access deny instance_metadata
+
+# Deny requests to certain unsafe ports
+http_access deny !Safe_ports
+
+# Deny CONNECT to other than secure SSL ports
+http_access deny CONNECT !SSL_ports
+
+
+# Only allow cachemgr access from localhost
+http_access allow localhost manager
+http_access allow localnet
+http_access deny manager
+
+# Filter HTTP requests based on the whitelist
+acl allowed_http_sites dstdomain "/etc/squid/whitelist.txt"
+http_access allow allowed_http_sites
+
+# Filter HTTPS requests based on the whitelist
+#acl allowed_https_sites ssl::server_name "/etc/squid/whitelist.txt"
+#ssl_bump peek step2 allowed_https_sites
+#ssl_bump splice step3 allowed_https_sites
+#ssl_bump terminate step2 all
+
+http_access deny all

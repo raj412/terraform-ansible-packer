@@ -1,0 +1,12 @@
+[Unit]
+Description=Boot-Build
+After=network.target
+Wants=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/boot-build.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
